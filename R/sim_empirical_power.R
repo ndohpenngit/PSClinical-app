@@ -1,125 +1,124 @@
-#' Simulate empirical power for continuous, binary, or survival outcomes
+#' Simulate Empirical Power for Continuous, Binary, or Survival Outcomes
 #'
-#' Supports two-arm parallel, one-sample, and paired designs.
+#' This function performs Monte Carlo simulations to estimate the empirical power
+#' for one-sample, paired, or two-arm parallel designs for continuous, binary,
+#' and survival outcomes. Survival outcomes can be simulated using either
+#' an exponential (constant hazard) or Weibull (time-varying hazard) distribution.
+#' Supports serial execution for Shiny apps and multi-core execution for local runs.
 #'
-#' @param design Character. One of "continuous", "binary", "survival"
-#' @param nsim Integer. Number of simulated trials per replication
-#'  (default 1000)
-#' @param n Numeric. Sample size per arm or per group (default 50)
-#' @param delta Numeric. Mean difference (required for continuous outcomes)
-#' @param sd Numeric. Standard deviation (required for continuous outcomes except paired)
-#' @param sd_diff Numeric. Standard deviation of within-subject differences (for paired continuous design)
-#' @param p1,p2 Numeric. Event probabilities for control and treatment
-#'  (required for binary outcomes)
-#' @param paired Logical. If TRUE, simulate paired design (default FALSE)
-#' @param one_sample Logical. If TRUE, simulate one-sample test (default FALSE)
-#' @param HR Numeric. Hazard ratio (required for survival outcomes)
-#' @param lambdaC Numeric. Baseline hazard for control group
-#'  (required for survival outcomes)
-#' @param accrual,followup Numeric. Placeholder for time-to-event parameters
-#' @param dropout Numeric. Dropout rate between 0 and 1 (default 0)
-#' @param alpha Numeric. Significance level (default 0.05)
-#' @param alternative Character. "two.sided" or "one.sided" (default "two.sided")
-#' @param nrep Integer. Number of replicated runs (default 100)
-#' @param plot Logical. If TRUE, plot distribution of simulated powers (default TRUE)
-#' @param seed Integer. Optional random seed
-#' @param ncores Integer. Number of CPU cores for parallel execution
+#' @param design Character. One of `"continuous"`, `"binary"`, `"survival"`.
+#' @param sub_design Character. One of `"parallel"`, `"one_sample"`, `"paired"`.
+#' @param nsim Integer. Number of simulations per replication (default 1000).
+#' @param n Numeric. Sample size per group (or total for one-sample/paired, default 50).
+#' @param delta Numeric. Mean difference for continuous outcomes (required if continuous).
+#' @param sd Numeric. Standard deviation for continuous outcomes (required unless paired).
+#' @param sd_diff Numeric. SD of differences for paired continuous outcomes.
+#' @param p1 Numeric. Event probability for control/baseline (binary outcomes).
+#' @param p2 Numeric. Event probability for treatment/paired (binary outcomes).
+#' @param HR Numeric. Hazard ratio for survival outcomes.
+#' @param lambdaC Numeric. Baseline hazard (or scale) for control group (survival outcomes).
+#' @param dropout Numeric. Dropout rate between 0 and 1 (default 0, survival outcomes).
+#' @param dist Character. `"exponential"` or `"weibull"` for survival simulation.
+#' @param shape Numeric. Weibull shape parameter (only used if dist = "weibull").
+#' @param alpha Numeric. Significance level (default 0.05).
+#' @param alternative Character. `"two.sided"` or `"one.sided"` (default `"two.sided"`).
+#' @param nrep Integer. Number of replications (outer loop, default 100).
+#' @param plot Logical. If TRUE, returns a plot of empirical power distribution.
+#' @param seed Integer. Optional random seed.
+#' @param ncores Integer. Number of CPU cores for local parallel execution. Ignored if mode = "shiny".
+#' @param mode Character. `"shiny"` for serial execution (safe on shinyapps.io),
+#'   `"local"` for multi-core offline execution. Default `"shiny"`.
 #'
-#' @return List with:
-#'   \item{mean_power}{Mean empirical power across replications}
-#'   \item{rep_powers}{Vector of empirical power estimates (length = nrep)}
-#'   \item{plot_powers}{Plot object if plot=TRUE}
-#' @export
+#' @return A list with:
+#'   \item{mean_power}{Mean empirical power across replications.}
+#'   \item{rep_powers}{Vector of empirical power estimates (length = nrep).}
+#'   \item{plot_powers}{ggplot object if plot = TRUE.}
 #'
 #' @examples
 #' \dontrun{
 #' # One-sample continuous
-#' res1 <- sim_empirical_power(design="continuous", n=50, delta=2, sd=5,
-#'                             one_sample=TRUE, nrep=50, ncores)
-#' res1$mean_power
+#' sim_empirical_power(design="continuous", sub_design="one_sample",
+#'                     n=50, delta=2, sd=5, nrep=50)
 #'
 #' # Paired binary
-#' res2 <- sim_empirical_power(design="binary", n=60, p1=0.3, p2=0.5,
-#'                             paired=TRUE, nrep=50, ncores)
-#' res2$mean_power
+#' sim_empirical_power(design="binary", sub_design="paired",
+#'                     n=60, p1=0.3, p2=0.5, nrep=50)
 #'
-#' # Two-arm parallel continuous
-#' res3 <- sim_empirical_power(design="continuous", n=50, delta=2, sd=5,
-#'                             nrep=50, ncores)  # default: parallel
-#' res3$mean_power
+#' # Two-arm parallel survival, exponential
+#' sim_empirical_power(design="survival", sub_design="parallel",
+#'                     n=40, HR=0.7, lambdaC=0.1, dist="exponential",
+#'                     dropout=0.05, nrep=20)
 #'
-#' # Two-arm parallel binary
-#' res4 <- sim_empirical_power(design="binary", n=60, p1=0.3, p2=0.5,
-#'                             nrep=50, ncores)
-#' res4$mean_power
-#'
-#' # Two-arm survival
-#' res5 <- sim_empirical_power(design="survival", n=40, HR=0.7, lambdaC=0.1,
-#'                             dropout=0.05, nrep=20, ncores)
-#' res5$mean_power
+#' # Two-arm parallel survival, Weibull
+#' sim_empirical_power(design="survival", sub_design="parallel",
+#'                     n=40, HR=0.7, lambdaC=0.1, dist="weibull",
+#'                     shape=1.5, dropout=0.05, nrep=20)
 #' }
-#'
+#' @export
 sim_empirical_power <- function(
     design = c("continuous", "binary", "survival"),
+    sub_design = c("parallel", "one_sample", "paired"),
     nsim = 1000,
     n = 50,
     delta = NULL, sd = NULL, sd_diff = NULL,
     p1 = NULL, p2 = NULL,
-    paired = FALSE,
-    one_sample = FALSE,
     HR = NULL, lambdaC = NULL,
-    accrual = NULL, followup = NULL, dropout = 0,
+    dropout = 0,
+    dist = c("exponential", "weibull"),
+    shape = 1,
     alpha = 0.05,
     alternative = c("two.sided", "one.sided"),
     nrep = 100,
     plot = TRUE,
     seed = NULL,
-    ncores = max(parallel::detectCores() - 1, 1)
+    ncores = max(parallel::detectCores() - 1, 1),
+    mode = c("shiny", "local")
 ) {
+  
   design <- match.arg(design)
+  sub_design <- match.arg(sub_design)
   alternative <- match.arg(alternative)
+  dist <- match.arg(dist)
+  mode <- match.arg(mode)
   if (!is.null(seed)) set.seed(seed)
   stopifnot(nsim > 0, n > 1, alpha > 0, alpha < 1)
-
+  
   # --- Input validation ---
   if (design == "continuous") {
-    if (paired) {
-      if (is.null(delta) || is.null(sd_diff))
-        stop("For paired continuous design, specify both 'delta' and 'sd_diff'.")
-    } else if (one_sample) {
-      if (is.null(delta) || is.null(sd))
-        stop("For one-sample continuous design, specify both 'delta' and 'sd'.")
-    } else {
-      if (is.null(delta) || is.null(sd))
-        stop("For two-sample continuous design, specify both 'delta' and 'sd'.")
-    }
+    if (sub_design == "paired" && (is.null(delta) || is.null(sd_diff)))
+      stop("For paired continuous, provide delta and sd_diff.")
+    if (sub_design == "one_sample" && (is.null(delta) || is.null(sd)))
+      stop("For one-sample continuous, provide delta and sd.")
+    if (sub_design == "parallel" && (is.null(delta) || is.null(sd)))
+      stop("For parallel continuous, provide delta and sd.")
   }
-
-  if (design == "binary" && one_sample && is.null(p1))
-    stop("For one-sample binary, specify 'p1'.")
-  if (design == "binary" && !one_sample && (is.null(p1) || is.null(p2)))
-    stop("For binary design, specify both 'p1' and 'p2'.")
+  
+  if (design == "binary") {
+    if (sub_design == "one_sample" && is.null(p1))
+      stop("For one-sample binary, specify p1.")
+    if (sub_design != "one_sample" && (is.null(p1) || is.null(p2)))
+      stop("For binary two-arm or paired, specify p1 and p2.")
+  }
+  
   if (design == "survival" && (is.null(HR) || is.null(lambdaC)))
-    stop("For survival design, specify both 'HR' and 'lambdaC'.")
-
-  # --- One simulation batch ---
+    stop("For survival, provide HR and lambdaC.")
+  if (design == "survival" && dist == "weibull" && shape <= 0)
+    stop("For Weibull survival, 'shape' must be > 0.")
+  
+  # --- Single simulation function ---
   run_sim <- function() {
     if (design == "continuous") {
-      if (one_sample) {
+      if (sub_design == "one_sample") {
         x <- matrix(rnorm(nsim * n, mean = delta, sd = sd), nrow = nsim)
         se <- sd / sqrt(n)
         tstat <- rowMeans(x) / se
         df <- n - 1
-
-      } else if (paired) {
-        # Paired continuous: simulate difference directly
+      } else if (sub_design == "paired") {
         diff_mat <- matrix(rnorm(nsim * n, mean = delta, sd = sd_diff), nrow = nsim)
         se <- sd_diff / sqrt(n)
         tstat <- rowMeans(diff_mat) / se
         df <- n - 1
-
       } else {
-        # Two-sample parallel continuous
         g1 <- matrix(rnorm(nsim * n, mean = 0, sd = sd), nrow = nsim)
         g2 <- matrix(rnorm(nsim * n, mean = delta, sd = sd), nrow = nsim)
         mean_diff <- rowMeans(g2) - rowMeans(g1)
@@ -127,99 +126,84 @@ sim_empirical_power <- function(
         tstat <- mean_diff / se
         df <- 2 * n - 2
       }
-
-      pvals <- if (alternative == "two.sided") {
-        2 * pt(-abs(tstat), df)
-      } else {
-        pt(tstat, df, lower.tail = (delta > 0))
-      }
-      mean(pvals < alpha)
-
-    } else if (design == "binary") {
-      # --- Binary designs ---
-      if (one_sample) {
+      pvals <- if (alternative == "two.sided") 2 * pt(-abs(tstat), df) else pt(tstat, df, lower.tail = (delta > 0))
+      return(mean(pvals < alpha))
+    }
+    
+    if (design == "binary") {
+      if (sub_design == "one_sample") {
         x <- rbinom(nsim, n, p1)
-        se <- sqrt(p1 * (1 - p1) / n)
-        z <- (x / n - 0) / se
-      } else if (paired) {
+        se <- sqrt(p1*(1-p1)/n)
+        z <- (x/n - 0)/se
+      } else if (sub_design == "paired") {
         x1 <- rbinom(nsim, n, p1)
         x2 <- rbinom(nsim, n, p2)
         diff <- x2 - x1
-        se <- sqrt(p1 * (1 - p1) + p2 * (1 - p2) -
-                     2 * sqrt(p1 * (1 - p1) * p2 * (1 - p2))) / sqrt(n)
-        z <- diff / se
+        se <- sqrt(p1*(1-p1) + p2*(1-p2) - 2*sqrt(p1*(1-p1)*p2*(1-p2)))/sqrt(n)
+        z <- diff/se
       } else {
         x1 <- rbinom(nsim, n, p1)
         x2 <- rbinom(nsim, n, p2)
-        p_pool <- (x1 + x2) / (2 * n)
-        se <- sqrt(2 * p_pool * (1 - p_pool) / n)
-        z <- (x2 / n - x1 / n) / se
+        p_pool <- (x1 + x2)/(2*n)
+        se <- sqrt(2 * p_pool * (1 - p_pool)/n)
+        z <- (x2/n - x1/n)/se
       }
-      pvals <- if (alternative == "two.sided") {
-        2 * pnorm(-abs(z))
-      } else {
-        pnorm(z, lower.tail = (p2 > p1))
-      }
-      mean(pvals < alpha)
-
-    } else if (design == "survival") {
-      # --- Survival ---
+      pvals <- if (alternative == "two.sided") 2 * pnorm(-abs(z)) else pnorm(z, lower.tail = (p2 > p1))
+      return(mean(pvals < alpha))
+    }
+    
+    if (design == "survival") {
       n_total <- 2 * n
-      group <- rep(c(0, 1), each = n)
-      lambdaT <- lambdaC * HR
-      time <- rexp(n_total, rate = ifelse(group == 0, lambdaC, lambdaT))
+      group <- rep(c(0,1), each=n)
+      if (dist == "exponential") {
+        lambdaT <- lambdaC * HR
+        time <- rexp(n_total, rate = ifelse(group == 0, lambdaC, lambdaT))
+      } else if (dist == "weibull") {
+        # Weibull: scale = lambda^(-1/shape)
+        scaleC <- lambdaC^(-1/shape)
+        scaleT <- (lambdaC*HR)^(-1/shape)
+        time <- c(scaleC * (-log(runif(n)))^(1/shape),
+                  scaleT * (-log(runif(n)))^(1/shape))
+      }
       status <- rbinom(n_total, 1, 1 - dropout)
-      df <- data.frame(time = time, status = status, group = factor(group))
-      fit <- survival::coxph(survival::Surv(time, status) ~ group, data = df)
+      df_surv <- data.frame(time = time, status = status, group = factor(group))
+      fit <- survival::coxph(survival::Surv(time, status) ~ group, data=df_surv)
       pval <- summary(fit)$coefficients[, "Pr(>|z|)"]
-      if (alternative == "one.sided") pval <- pval / 2
-      as.numeric(pval < alpha)
+      if (alternative == "one.sided") pval <- pval/2
+      return(as.numeric(pval < alpha))
     }
   }
-
-  # --- Parallel execution ---
-  cl <- parallel::makeCluster(ncores)
-  on.exit(parallel::stopCluster(cl))
-  parallel::clusterExport(cl, varlist = ls(), envir = environment())
-  rep_powers <- unlist(parallel::parLapply(cl, seq_len(nrep), function(i) run_sim()))
-
-  # --- Plot results ---
+  
+  # --- Replications ---
+  if (mode == "shiny") {
+    rep_powers <- replicate(nrep, run_sim())
+  } else {
+    cl <- parallel::makeCluster(ncores)
+    on.exit(parallel::stopCluster(cl))
+    parallel::clusterExport(cl, varlist=ls(), envir=environment())
+    rep_powers <- unlist(parallel::parLapply(cl, seq_len(nrep), function(i) run_sim()))
+  }
+  
+  # --- Plot ---
   if (plot) {
+    df <- data.frame(power = rep_powers)
     if (length(unique(rep_powers)) > 1) {
-      df_powers <- data.frame(power = rep_powers)
-
-      p <- ggplot(df_powers, aes(x = power)) +
-        geom_histogram(aes(y = after_stat(density)), bins = 20, fill="skyblue", color="white") +
-        geom_density(color = "blue", lwd = 1) +
-        geom_vline(xintercept = mean(rep_powers), color = "darkred", linetype = "dashed", size = 1) +
-        annotate("text",
-                 x = mean(rep_powers),
-                 y = max(density(rep_powers)$y) * 0.9,
-                 label = paste("Mean:", round(mean(rep_powers), 3)),
-                 color = "darkred", vjust = -5, hjust = -0.1
-        ) +
-        labs(
-          title = "Distribution of Empirical Power Estimates",
-          x = "Estimated Power",
-          y = "Density"
-        ) +
-        theme_minimal()
+      p <- ggplot2::ggplot(df, ggplot2::aes(x = power)) +
+        ggplot2::geom_histogram(ggplot2::aes(y=after_stat(density)), bins=20, fill="skyblue", color="white") +
+        ggplot2::geom_density(color="blue", linewidth=1) +
+        ggplot2::geom_vline(xintercept = mean(rep_powers), color="darkred", linetype="dashed", linewidth=1) +
+        ggplot2::labs(title="Distribution of Empirical Power Estimates", x="Estimated Power", y="Density") +
+        ggplot2::theme_minimal()
     } else {
-      df_powers <- data.frame(power = rep_powers)
-      p <- ggplot(df_powers, aes(x = power)) +
-        geom_histogram(bins=5, fill="skyblue", color="white") +
-        geom_vline(xintercept = mean(rep_powers), color = "darkred", linetype = "dashed", size = 1) +
-        labs(
-          title = "Empirical Power (single value)",
-          x = "Estimated Power",
-          y = "Density"
-        ) +
-        theme_minimal()
+      p <- ggplot2::ggplot(df, ggplot2::aes(x = power)) +
+        ggplot2::geom_histogram(bins=5, fill="skyblue", color="white") +
+        ggplot2::geom_vline(xintercept = mean(rep_powers), color="darkred", linetype="dashed", linewidth=1) +
+        ggplot2::labs(title="Empirical Power (Single Value)", x="Estimated Power", y="Count") +
+        ggplot2::theme_minimal()
     }
-    p
-  }
-
+  } else p <- NULL
+  
   list(mean_power = mean(rep_powers),
        rep_powers = rep_powers,
-       plot_powers = if(plot) p else NULL)
+       plot_powers = p)
 }
