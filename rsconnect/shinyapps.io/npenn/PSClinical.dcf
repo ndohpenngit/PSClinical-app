@@ -1,0 +1,13 @@
+name: PSClinical
+title: PSClinical
+username: npenn
+account: npenn
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 15763277
+bundleId: 11038033
+url: https://npenn.shinyapps.io/PSClinical/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: README.md

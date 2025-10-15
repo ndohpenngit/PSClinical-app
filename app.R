@@ -6,13 +6,12 @@ library(shinycssloaders)
 library(DT)
 library(ggplot2)
 library(plotly)
-# library(psclinical)
 
 # Load modules
-mod_path <- if (dir.exists("inst/shiny/psclinical_app/modules")) {
-  "inst/shiny/psclinical_app/modules"
+mod_path <- if (dir.exists("modules")) {
+  "modules"
 } else {
-  system.file("shiny/psclinical_app/modules", package = "psclinical")
+  system.file("modules", package = "psclinical")
 }
 
 module_files <- list.files(mod_path, pattern = "^mod_.*\\.R$", full.names = TRUE)
