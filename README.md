@@ -103,5 +103,4 @@ Displays:
 </div>
 
 <br><br>
-<a href="https://yourusername.shinyapps.io/appname/" target="_blank">My Shiny App</a>
-
+<a href="https://npenn.shinyapps.io/PSClinical/" target="_blank">Link to App</a>
