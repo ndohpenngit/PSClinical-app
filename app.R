@@ -89,7 +89,7 @@ server <- function(input, output, session) {
         size = "l",
         HTML(
           "<div class='about-modal'>
-            <p><b>PSClinical</b> — Sample Size and Power Computation Toolkit for Clinical Trials.</p>
+            <p><b>PSClinical</b> — Sample Size & Power Computation Toolkit for Clinical Trials.</p>
             <p>Compute sample size and power for continuous, binary, and survival designs.</p>
             <p>Includes simulation-based power estimation and advanced options like accrual/follow-up modeling.</p>
           </div>"
