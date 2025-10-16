@@ -12,7 +12,7 @@ Sample Size & Power Computation Toolkit for Clinical Trials
 
 <p align="center">
 
-<a href="https://www.r-project.org/"> <img src="https://img.shields.io/badge/R-%3E=4.3.0-blue?logo=r&amp;logoColor=white" alt="R version"/> </a> <a href="https://shiny.posit.co/"> <img src="https://img.shields.io/badge/Built%20with-Shiny-009999?logo=rstudio&amp;logoColor=white" alt="Shiny badge"/> </a> <a href="https://opensource.org/licenses/MIT"> <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"/> </a> <a href="https://your-shinyapp-link.shinyapps.io/PSClinical/"> <img src="https://img.shields.io/badge/Live%20App-PSClinical-blueviolet?logo=shiny" alt="Live app"/> </a>
+<a href="https://www.r-project.org/"> <img src="https://img.shields.io/badge/R-%3E=4.3.0-blue?logo=r&amp;logoColor=white" alt="R version"/> </a> <a href="https://shiny.posit.co/"> <img src="https://img.shields.io/badge/Built%20with-Shiny-009999?logo=rstudio&amp;logoColor=white" alt="Shiny badge"/> </a> <a href="https://opensource.org/licenses/MIT"> <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="MIT License"/> </a> <a href="https://npenn.shinyapps.io/PSClinical/"> <img src="https://img.shields.io/badge/Live%20App-PSClinical-blueviolet?logo=shiny" alt="Live app"/> </a>
 
 </p>
 
@@ -101,4 +101,7 @@ Displays:
   <br/>
   <em>Power estimation for a parallel design continuous outcome</em>
 </div>
+
+<br><br>
+<a href="https://yourusername.shinyapps.io/appname/" target="_blank">My Shiny App</a>
 
